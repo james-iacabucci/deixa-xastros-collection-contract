@@ -1,31 +1,43 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.9 <0.9.0;
+pragma abicoder v2;
 
 import "erc721a/contracts/ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-/*********************************************************************************************
-
-  ____       _                               
- |  _ \  ___(_)_  ____ _                     
- | | | |/ _ \ \ \/ / _` |                    
- | |_| |  __/ |>  < (_| |                    
- |____/ \___|_/_/\_\__,_|                    
- __  __    _    ____ _____ ____   ___  ____  
- \ \/ /   / \  / ___|_   _|  _ \ / _ \/ ___| 
-  \  /   / _ \ \___ \ | | | |_) | | | \___ \ 
-  /  \  / ___ \ ___) || | |  _ <| |_| |___) |
- /_/\_\/_/   \_\____/ |_| |_| \_\\___/|____/ 
+/********************************************************************************************************
+                                                                                                          
+8 888888888o.      8 8888888888    8 8888 `8.`8888.      ,8'          .8.                                 
+8 8888    `^888.   8 8888          8 8888  `8.`8888.    ,8'          .888.                                
+8 8888        `88. 8 8888          8 8888   `8.`8888.  ,8'          :88888.                               
+8 8888         `88 8 8888          8 8888    `8.`8888.,8'          . `88888.                              
+8 8888          88 8 888888888888  8 8888     `8.`88888'          .8. `88888.                             
+8 8888          88 8 8888          8 8888     .88.`8888.         .8`8. `88888.                            
+8 8888         ,88 8 8888          8 8888    .8'`8.`8888.       .8' `8. `88888.                           
+8 8888        ,88' 8 8888          8 8888   .8'  `8.`8888.     .8'   `8. `88888.                          
+8 8888    ,o88P'   8 8888          8 8888  .8'    `8.`8888.   .888888888. `88888.                         
+8 888888888P'      8 888888888888  8 8888 .8'      `8.`8888. .8'       `8. `88888.                        
+                                                                                                          
+`8.`8888.      ,8'          .8.            d888888o. 8888888 8888888888 8 888888888o.      ,o888888o.     
+ `8.`8888.    ,8'          .888.         .`8888:' `88.     8 8888       8 8888    `88.  . 8888     `88.   
+  `8.`8888.  ,8'          :88888.        8.`8888.   Y8     8 8888       8 8888     `88 ,8 8888       `8b  
+   `8.`8888.,8'          . `88888.       `8.`8888.         8 8888       8 8888     ,88 88 8888        `8b 
+    `8.`88888'          .8. `88888.       `8.`8888.        8 8888       8 8888.   ,88' 88 8888         88 
+    .88.`8888.         .8`8. `88888.       `8.`8888.       8 8888       8 888888888P'  88 8888         88 
+   .8'`8.`8888.       .8' `8. `88888.       `8.`8888.      8 8888       8 8888`8b      88 8888        ,8P 
+  .8'  `8.`8888.     .8'   `8. `88888.  8b   `8.`8888.     8 8888       8 8888 `8b.    `8 8888       ,8P  
+ .8'    `8.`8888.   .888888888. `88888. `8b.  ;8.`8888     8 8888       8 8888   `8b.   ` 8888     ,88'   
+.8'      `8.`8888. .8'       `8. `88888. `Y8888P ,88P'     8 8888       8 8888     `88.    `8888888P'     
                                                                                                                                                                                                                                                      
-**********************************************************************************************
+*********************************************************************************************************
  DEVELOPER James Iacabucci
  ARTIST Bruce Sulzberg
-*********************************************************************************************/
+********************************************************************************************************/
 
-contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
+contract DeixaXastroCollection is ERC721A, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
     bytes32 public goldListMerkleRoot;
@@ -37,6 +49,7 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
     string public uriPrefix = "";
     string public uriSuffix = ".json";
     string public hiddenMetadataUri;
+    string public contractMetadataUri;
 
     uint256 public cost;
     uint256 public maxSupply;
@@ -46,9 +59,14 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
     bool public paused = true;
     bool public revealed = false;
     bool public released = false;
+
     bool public freeListMintEnabled = false;
     bool public goldListMintEnabled = false;
     bool public preSaleMintEnabled = false;
+
+    string[] public promotionCodes;
+    mapping(string => uint256) public promotionCodeToSales;
+    mapping(string => bool) private promotionCodeRegistered;
 
     constructor(
         string memory _tokenName,
@@ -56,13 +74,15 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
         uint256 _cost,
         uint256 _maxSupply,
         uint256 _maxMintAmountPerTx,
-        string memory _hiddenMetadataUri
+        string memory _hiddenMetadataUri,
+        string memory _contractMetadataUri
     ) ERC721A(_tokenName, _tokenSymbol) {
         setCost(_cost);
         maxSupply = _maxSupply;
         mintLimit = _maxSupply;
         setMaxMintAmountPerTx(_maxMintAmountPerTx);
         setHiddenMetadataUri(_hiddenMetadataUri);
+        setContractMetadataUri(_contractMetadataUri);
     }
 
     modifier mintCompliance(uint256 _mintAmount) {
@@ -77,7 +97,23 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
         _;
     }
 
-    function freeListMint(uint256 _mintAmount, bytes32[] calldata _merkleProof) public payable mintCompliance(_mintAmount) {
+    function recordPromotedSale(string memory _promotionCode, uint256 _saleAmount) internal {
+        if (promotionCodeRegistered[_promotionCode] == false) {
+            promotionCodes.push(_promotionCode);
+            promotionCodeRegistered[_promotionCode] = true;
+        }
+        promotionCodeToSales[_promotionCode] += _saleAmount;
+    }
+
+    function promotionCodeCount() external view returns (uint256) {
+        return promotionCodes.length;
+    }
+
+    function freeListMint(
+        uint256 _mintAmount,
+        string memory _promotionCode,
+        bytes32[] calldata _merkleProof
+    ) public payable mintCompliance(_mintAmount) {
         // Verify Free List requirements
         require(freeListMintEnabled, "The Free Mint sale is not open!");
         require(!freeListClaimed[_msgSender()], "Your address has already claimed its Free List NFT!");
@@ -86,14 +122,14 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
 
         freeListClaimed[_msgSender()] = true;
         _safeMint(_msgSender(), _mintAmount);
+        recordPromotedSale(_promotionCode, msg.value);
     }
 
-    function goldListMint(uint256 _mintAmount, bytes32[] calldata _merkleProof)
-        public
-        payable
-        mintCompliance(_mintAmount)
-        mintPriceCompliance(_mintAmount)
-    {
+    function goldListMint(
+        uint256 _mintAmount,
+        string memory _promotionCode,
+        bytes32[] calldata _merkleProof
+    ) public payable mintCompliance(_mintAmount) mintPriceCompliance(_mintAmount) {
         // Verify Gold List requirements
         require(goldListMintEnabled, "The Gold List sale is not active!");
         require(!goldListClaimed[_msgSender()], "Your address has already claimed its Gold List NFT!");
@@ -102,11 +138,13 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
 
         goldListClaimed[_msgSender()] = true;
         _safeMint(_msgSender(), _mintAmount);
+        recordPromotedSale(_promotionCode, msg.value);
     }
 
-    function mint(uint256 _mintAmount) public payable mintCompliance(_mintAmount) mintPriceCompliance(_mintAmount) {
+    function mint(uint256 _mintAmount, string memory _promotionCode) public payable mintCompliance(_mintAmount) mintPriceCompliance(_mintAmount) {
         require(!paused, "The sale is paused!");
         _safeMint(_msgSender(), _mintAmount);
+        recordPromotedSale(_promotionCode, msg.value);
     }
 
     function mintForAddress(uint256 _mintAmount, address _receiver) public mintCompliance(_mintAmount) onlyOwner {
@@ -154,6 +192,10 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
         return bytes(currentBaseURI).length > 0 ? string(abi.encodePacked(currentBaseURI, _tokenId.toString(), uriSuffix)) : "";
     }
 
+    function contractURI() public view returns (string memory) {
+        return contractMetadataUri;
+    }
+
     function setRevealed(bool _state) public onlyOwner {
         revealed = _state;
     }
@@ -170,8 +212,22 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
         maxMintAmountPerTx = _maxMintAmountPerTx;
     }
 
+    function setSaleParameters(
+        uint256 _cost,
+        uint256 _maxMintAmountPerTx,
+        uint256 _mintLimit
+    ) public onlyOwner {
+        cost = _cost;
+        mintLimit = _mintLimit;
+        maxMintAmountPerTx = _maxMintAmountPerTx;
+    }
+
     function setHiddenMetadataUri(string memory _hiddenMetadataUri) public onlyOwner {
         hiddenMetadataUri = _hiddenMetadataUri;
+    }
+
+    function setContractMetadataUri(string memory _contractMetadataUri) public onlyOwner {
+        contractMetadataUri = _contractMetadataUri;
     }
 
     function setUriPrefix(string memory _uriPrefix) public onlyOwner {
@@ -210,17 +266,12 @@ contract DeixaXastrosCollection is ERC721A, Ownable, ReentrancyGuard {
         preSaleMintEnabled = _state;
     }
 
-    function withdraw() public onlyOwner nonReentrant {
-        // Test of spliting up minting fees to various parties
-        //(bool hs, ) = payable(0x7081a60B472E61Ec93b81521B77945c10c463670).call{value: (address(this).balance * 30) / 100}("");
-        //require(hs);
-
-        // Transfer the remaining contract balance to the owner.
-        (bool os, ) = payable(owner()).call{value: address(this).balance}("");
-        require(os);
-    }
-
     function _baseURI() internal view virtual override returns (string memory) {
         return uriPrefix;
+    }
+
+    function withdraw() public onlyOwner nonReentrant {
+        (bool os, ) = payable(owner()).call{value: address(this).balance}("");
+        require(os, "Withdraw Failed!");
     }
 }

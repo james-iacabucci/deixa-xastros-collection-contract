@@ -1,292 +1,329 @@
-import chai, { expect } from 'chai';
-import ChaiAsPromised from 'chai-as-promised';
-import { BigNumber, utils } from 'ethers';
-import { ethers } from 'hardhat';
-import { MerkleTree } from 'merkletreejs';
-import keccak256 from 'keccak256';
-import CollectionConfig from './../config/CollectionConfig';
-import ContractArguments from '../config/ContractArguments';
-import { NftContractType } from '../lib/NftContractProvider';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import chai, { expect } from "chai";
+import ChaiAsPromised from "chai-as-promised";
+import { BigNumber, utils } from "ethers";
+import { ethers } from "hardhat";
+import { MerkleTree } from "merkletreejs";
+import keccak256 from "keccak256";
+import CollectionConfig from "./../config/CollectionConfig";
+import ContractArguments from "../config/ContractArguments";
+import { NftContractType } from "../lib/NftContractProvider";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 chai.use(ChaiAsPromised);
 
 enum SaleType {
-  FREELIST = CollectionConfig.freelistSale.price,
-  GOLDLIST = CollectionConfig.goldlistSale.price,
-  PRE_SALE = CollectionConfig.preSale.price,
-  PUBLIC_SALE = CollectionConfig.publicSale.price,
+    FREELIST = CollectionConfig.freelistSale.price,
+    GOLDLIST = CollectionConfig.goldlistSale.price,
+    PRE_SALE = CollectionConfig.preSale.price,
+    PUBLIC_SALE = CollectionConfig.publicSale.price,
+}
+
+const promoCodes = {
+    "0": "dexia",
+    "1": "promoter01",
+    "2": "promoter02",
+    "3": "promoter03",
+    "4": "promoter04",
 };
 
 const goldListAddresses = [
-  // Hardhat test addresses...
-  "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-  "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
-  "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
-  "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
-  "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f",
-  "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
-  "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
-  "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
-  "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a",
-  "0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec",
-  "0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097",
-  "0xcd3B766CCDd6AE721141F452C550Ca635964ce71",
-  "0x2546BcD3c84621e976D8185a91A922aE77ECEc30",
-  "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
-  "0xdD2FD4581271e230360230F9337D5c0430Bf44C0",
-  "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"
+    // Hardhat test addresses...
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+    "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
+    "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+    "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
+    "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f",
+    "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
+    "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
+    "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
+    "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a",
+    "0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec",
+    "0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097",
+    "0xcd3B766CCDd6AE721141F452C550Ca635964ce71",
+    "0x2546BcD3c84621e976D8185a91A922aE77ECEc30",
+    "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
+    "0xdD2FD4581271e230360230F9337D5c0430Bf44C0",
+    "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199",
 ];
 
 function getPrice(saleType: SaleType, mintAmount: number) {
-  return utils.parseEther(saleType.toString()).mul(mintAmount);
+    return utils.parseEther(saleType.toString()).mul(mintAmount);
 }
 
 describe(CollectionConfig.contractName, function () {
-  let owner!: SignerWithAddress;
-  let goldListedUser!: SignerWithAddress;
-  let holder!: SignerWithAddress;
-  let externalUser!: SignerWithAddress;
-  let contract!: NftContractType;
+    let owner!: SignerWithAddress;
+    let goldListedUser!: SignerWithAddress;
+    let holder!: SignerWithAddress;
+    let externalUser!: SignerWithAddress;
+    let contract!: NftContractType;
 
-  before(async function () {
-    [owner, goldListedUser, holder, externalUser] = await ethers.getSigners();
-  });
+    before(async function () {
+        [owner, goldListedUser, holder, externalUser] = await ethers.getSigners();
+    });
 
-  it('Contract deployment', async function () {
-    const Contract = await ethers.getContractFactory(CollectionConfig.contractName);
-    contract = await Contract.deploy(...ContractArguments) as NftContractType;
-    
-    await contract.deployed();
-  });
+    it("Contract deployment", async function () {
+        const Contract = await ethers.getContractFactory(CollectionConfig.contractName);
+        contract = (await Contract.deploy(...ContractArguments)) as NftContractType;
+        await contract.deployed();
+    });
 
-  it('Check initial data', async function () {
-    expect(await contract.name()).to.equal(CollectionConfig.tokenName);
-    expect(await contract.symbol()).to.equal(CollectionConfig.tokenSymbol);    
+    it("Check initial data", async function () {
+        expect(await contract.name()).to.equal(CollectionConfig.tokenName);
+        expect(await contract.symbol()).to.equal(CollectionConfig.tokenSymbol);
 
-    expect(await contract.paused()).to.equal(true);
-    expect(await contract.revealed()).to.equal(false); 
-    expect(await contract.released()).to.equal(false);
-    
-    expect(await contract.freeListMintEnabled()).to.equal(false);
-    expect(await contract.goldListMintEnabled()).to.equal(false);
-    expect(await contract.preSaleMintEnabled()).to.equal(false);
+        expect(await contract.paused()).to.equal(true);
+        expect(await contract.revealed()).to.equal(false);
+        expect(await contract.released()).to.equal(false);
 
-    expect(await contract.maxSupply()).to.equal(CollectionConfig.maxSupply);
-    expect(await contract.hiddenMetadataUri()).to.equal(CollectionConfig.hiddenMetadataUri);
-    expect(await contract.cost()).to.equal(getPrice(SaleType.PUBLIC_SALE, 1));
-    expect(await contract.maxMintAmountPerTx()).to.equal(CollectionConfig.publicSale.maxMintAmountPerTx);
+        expect(await contract.freeListMintEnabled()).to.equal(false);
+        expect(await contract.goldListMintEnabled()).to.equal(false);
+        expect(await contract.preSaleMintEnabled()).to.equal(false);
 
-    await expect(contract.tokenURI(1)).to.be.revertedWith('ERC721Metadata: the token specified does not exist');
-  });
+        expect(await contract.maxSupply()).to.equal(CollectionConfig.maxSupply);
+        expect(await contract.hiddenMetadataUri()).to.equal(CollectionConfig.hiddenMetadataUri);
+        expect(await contract.cost()).to.equal(getPrice(SaleType.PUBLIC_SALE, 1));
+        expect(await contract.maxMintAmountPerTx()).to.equal(CollectionConfig.publicSale.maxMintAmountPerTx);
+        expect(await contract.promotionCodeCount()).to.equal(0);
 
-  it('Before any sale', async function () {
-    // Nobody should be able to mint from a paused contract
-    await expect(contract.connect(goldListedUser).mint(1, {value: getPrice(SaleType.PUBLIC_SALE, 1)})).to.be.revertedWith('The sale is paused!');
-    await expect(contract.connect(goldListedUser).goldListMint(1, [], {value: getPrice(SaleType.PUBLIC_SALE, 1)})).to.be.revertedWith('The Gold List sale is not active!');
-    await expect(contract.connect(holder).mint(1, {value: getPrice(SaleType.PUBLIC_SALE, 1)})).to.be.revertedWith('The sale is paused!');
-    await expect(contract.connect(holder).goldListMint(1, [], {value: getPrice(SaleType.PUBLIC_SALE, 1)})).to.be.revertedWith('The Gold List sale is not active!');
-    await expect(contract.connect(owner).mint(1, {value: getPrice(SaleType.PUBLIC_SALE, 1)})).to.be.revertedWith('The sale is paused!');
-    await expect(contract.connect(owner).goldListMint(1, [], {value: getPrice(SaleType.PUBLIC_SALE, 1)})).to.be.revertedWith('The Gold List sale is not active!');
+        await expect(contract.tokenURI(1)).to.be.revertedWith("ERC721Metadata: the token specified does not exist");
+    });
 
-    // The owner should always be able to run mintForAddress
-    await (await contract.mintForAddress(1, await owner.getAddress())).wait();
-    await (await contract.mintForAddress(1, await goldListedUser.getAddress())).wait();
-    // But not over the maxMintAmountPerTx
-    await expect(contract.mintForAddress(
-      await (await contract.maxMintAmountPerTx()).add(1),
-      await holder.getAddress(),
-    )).to.be.revertedWith('You can not mint this many items');
+    it("Before any sale", async function () {
+        // Nobody should be able to mint from a paused contract
+        await expect(contract.connect(goldListedUser).mint(1, promoCodes["0"], { value: getPrice(SaleType.PUBLIC_SALE, 1) })).to.be.revertedWith("The sale is paused!");
+        await expect(contract.connect(goldListedUser).goldListMint(1, promoCodes["0"], [], { value: getPrice(SaleType.PUBLIC_SALE, 1) })).to.be.revertedWith("The Gold List sale is not active!");
 
-    // Check balances
-    expect(await contract.balanceOf(await owner.getAddress())).to.equal(1);
-    expect(await contract.balanceOf(await goldListedUser.getAddress())).to.equal(1);
-    expect(await contract.balanceOf(await holder.getAddress())).to.equal(0);
-    expect(await contract.balanceOf(await externalUser.getAddress())).to.equal(0);
-  });
+        await expect(contract.connect(holder).mint(1, promoCodes["0"], { value: getPrice(SaleType.PUBLIC_SALE, 1) })).to.be.revertedWith("The sale is paused!");
+        await expect(contract.connect(holder).goldListMint(1, promoCodes["0"], [], { value: getPrice(SaleType.PUBLIC_SALE, 1) })).to.be.revertedWith("The Gold List sale is not active!");
 
-  it('Gold List sale', async function () {
-    // Build MerkleTree
-    const leafNodes = goldListAddresses.map(addr => keccak256(addr));
-    const merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
-    const rootHash = merkleTree.getRoot();
-    // Update the root hash
-    await (await contract.setGoldListMerkleRoot('0x' + rootHash.toString('hex'))).wait();
+        await expect(contract.connect(owner).mint(1, promoCodes["0"], { value: getPrice(SaleType.PUBLIC_SALE, 1) })).to.be.revertedWith("The sale is paused!");
+        await expect(contract.connect(owner).goldListMint(1, promoCodes["0"], [], { value: getPrice(SaleType.PUBLIC_SALE, 1) })).to.be.revertedWith("The Gold List sale is not active!");
 
-    await contract.setCost(utils.parseEther(CollectionConfig.goldlistSale.price.toString()));
-    await contract.setMaxMintAmountPerTx(CollectionConfig.goldlistSale.maxMintAmountPerTx);
-    await contract.setMintLimit(CollectionConfig.goldlistSale.mintLimit);
-    await contract.setGoldListMintEnabled(true);
+        // The owner should always be able to run mintForAddress
+        await (await contract.mintForAddress(1, await owner.getAddress())).wait();
+        await (await contract.mintForAddress(1, await goldListedUser.getAddress())).wait();
+        // But not over the maxMintAmountPerTx
+        await expect(contract.mintForAddress(await (await contract.maxMintAmountPerTx()).add(1), await holder.getAddress())).to.be.revertedWith("You can not mint this many items");
 
-    await contract.connect(goldListedUser).goldListMint(
-      1,
-      merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())),
-      {value: getPrice(SaleType.GOLDLIST, 1)},
-    );
-    // Trying to mint twice
-    await expect(contract.connect(goldListedUser).goldListMint(
-      1,
-      merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())),
-      {value: getPrice(SaleType.GOLDLIST, 1)},
-    )).to.be.revertedWith('Your address has already claimed its Gold List NFT');
-    // Sending an invalid mint amount
-    await expect(contract.connect(goldListedUser).goldListMint(
-      await (await contract.maxMintAmountPerTx()).add(1),
-      merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())),
-      {value: getPrice(SaleType.GOLDLIST, await (await contract.maxMintAmountPerTx()).add(1).toNumber())},
-    )).to.be.revertedWith('You can not mint this many items');
-    // Sending insufficient funds
-    await expect(contract.connect(goldListedUser).goldListMint(
-      1,
-      merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())),
-      {value: getPrice(SaleType.GOLDLIST, 1).sub(1)},
-    )).to.be.rejectedWith(Error, 'You did not send enough ETH to complete this purchase');
-    // Pretending to be someone else
-    await expect(contract.connect(holder).goldListMint(
-      1,
-      merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())),
-      {value: getPrice(SaleType.GOLDLIST, 1)},
-    )).to.be.revertedWith('This is an invalid Gold List proof!');
-    // Sending an invalid proof
-    await expect(contract.connect(holder).goldListMint(
-      1,
-      merkleTree.getHexProof(keccak256(await holder.getAddress())),
-      {value: getPrice(SaleType.GOLDLIST, 1)},
-    )).to.be.revertedWith('This is an invalid Gold List proof!');
-    // Sending no proof at all
-    await expect(contract.connect(holder).goldListMint(
-      1,
-      [],
-      {value: getPrice(SaleType.GOLDLIST, 1)},
-    )).to.be.revertedWith('This is an invalid Gold List proof!');
-    
-    // Pause goldList sale
-    await contract.setGoldListMintEnabled(false);
-    await contract.setCost(utils.parseEther(CollectionConfig.preSale.price.toString()));
+        // Check balances
+        expect(await contract.balanceOf(await owner.getAddress())).to.equal(1);
+        expect(await contract.balanceOf(await goldListedUser.getAddress())).to.equal(1);
+        expect(await contract.balanceOf(await holder.getAddress())).to.equal(0);
+        expect(await contract.balanceOf(await externalUser.getAddress())).to.equal(0);
 
-    // Check balances
-    expect(await contract.balanceOf(await owner.getAddress())).to.equal(1);
-    expect(await contract.balanceOf(await goldListedUser.getAddress())).to.equal(2);
-    expect(await contract.balanceOf(await holder.getAddress())).to.equal(0);
-    expect(await contract.balanceOf(await externalUser.getAddress())).to.equal(0);
-  });
-    
-  it('Pre-sale (same as public sale)', async function () {
-    await contract.setMaxMintAmountPerTx(CollectionConfig.preSale.maxMintAmountPerTx);
-    await contract.setPaused(false);
-    await contract.connect(holder).mint(2, {value: getPrice(SaleType.PRE_SALE, 2)});
-    await contract.connect(goldListedUser).mint(1, {value: getPrice(SaleType.PRE_SALE, 1)});
-    // Sending insufficient funds
-    await expect(contract.connect(holder).mint(1, {value: getPrice(SaleType.PRE_SALE, 1).sub(1)})).to.be.rejectedWith(Error, 'You did not send enough ETH to complete this purchase');
-    // Sending an invalid mint amount
-    await expect(contract.connect(goldListedUser).mint(
-      await (await contract.maxMintAmountPerTx()).add(1),
-      {value: getPrice(SaleType.PRE_SALE, await (await contract.maxMintAmountPerTx()).add(1).toNumber())},
-    )).to.be.revertedWith('You can not mint this many items');
-    // Sending a whitelist mint transaction
-    await expect(contract.connect(goldListedUser).goldListMint(
-      1,
-      [],
-      {value: getPrice(SaleType.GOLDLIST, 1)},
-    )).to.be.rejectedWith(Error, 'You did not send enough ETH to complete this purchase');
-    
-    // Pause pre-sale
-    await contract.setPaused(true);
-    await contract.setCost(utils.parseEther(CollectionConfig.publicSale.price.toString()));
-  });
-    
-  it('Owner only functions', async function () {
-    await expect(contract.connect(externalUser).mintForAddress(1, await externalUser.getAddress())).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setRevealed(false)).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setCost(utils.parseEther('0.0000001'))).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setMaxMintAmountPerTx(99999)).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setHiddenMetadataUri('INVALID_URI')).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setUriPrefix('INVALID_PREFIX')).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setUriSuffix('INVALID_SUFFIX')).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setPaused(false)).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setGoldListMerkleRoot('0x0000000000000000000000000000000000000000000000000000000000000000')).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).setGoldListMintEnabled(false)).to.be.revertedWith('Ownable: caller is not the owner');
-    await expect(contract.connect(externalUser).withdraw()).to.be.revertedWith('Ownable: caller is not the owner');
-  });
-    
-  it('Wallet of owner', async function () {
-    expect(await contract.walletOfOwner(await owner.getAddress())).deep.equal([
-      BigNumber.from(1),
-    ]);
-    expect(await contract.walletOfOwner(await goldListedUser.getAddress())).deep.equal([
-      BigNumber.from(2),
-      BigNumber.from(3),
-      BigNumber.from(6),
-    ]);
-    expect(await contract.walletOfOwner(await holder.getAddress())).deep.equal([
-      BigNumber.from(4),
-      BigNumber.from(5),
-    ]);
-    expect(await contract.walletOfOwner(await externalUser.getAddress())).deep.equal([]);
-  });
-    
-  it('Supply checks (long)', async function () {
-    if (process.env.EXTENDED_TESTS === undefined) {
-      this.skip();
-    }
+        // only mintForAddress so far (internal minting, no promotion tracking)
+        expect(await contract.promotionCodeCount()).to.equal(0);
+    });
 
-    const alreadyMinted = 6;
-    const maxMintAmountPerTx = 1000;
-    const iterations = Math.floor((CollectionConfig.maxSupply - alreadyMinted) / maxMintAmountPerTx);
-    const expectedTotalSupply = iterations * maxMintAmountPerTx + alreadyMinted;
-    const lastMintAmount = CollectionConfig.maxSupply - expectedTotalSupply;
-    expect(await contract.totalSupply()).to.equal(alreadyMinted);
+    it("Gold List sale", async function () {
+        // Build MerkleTree
+        const leafNodes = goldListAddresses.map((addr) => keccak256(addr));
+        const merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
+        const rootHash = merkleTree.getRoot();
+        // Update the root hash
+        await (await contract.setGoldListMerkleRoot("0x" + rootHash.toString("hex"))).wait();
 
-    await contract.setPaused(false);
-    await contract.setMaxMintAmountPerTx(maxMintAmountPerTx);
+        await contract.setCost(utils.parseEther(CollectionConfig.goldlistSale.price.toString()));
+        await contract.setMaxMintAmountPerTx(CollectionConfig.goldlistSale.maxMintAmountPerTx);
+        await contract.setMintLimit(CollectionConfig.goldlistSale.mintLimit);
+        await contract.setGoldListMintEnabled(true);
 
-    await Promise.all([...Array(iterations).keys()].map(async () => await contract.connect(goldListedUser).mint(maxMintAmountPerTx, {value: getPrice(SaleType.PUBLIC_SALE, maxMintAmountPerTx)})));
+        // Correctly mint one gold list NFT
+        await contract.connect(goldListedUser).goldListMint(1, promoCodes["0"], merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())), { value: getPrice(SaleType.GOLDLIST, 1) });
+        // Trying to mint twice
+        await expect(
+            contract.connect(goldListedUser).goldListMint(1, promoCodes["0"], merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())), { value: getPrice(SaleType.GOLDLIST, 1) }),
+        ).to.be.revertedWith("Your address has already claimed its Gold List NFT");
+        // Sending an invalid mint amount
+        await expect(
+            contract.connect(goldListedUser).goldListMint(await (await contract.maxMintAmountPerTx()).add(1), promoCodes["0"], merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())), {
+                value: getPrice(SaleType.GOLDLIST, await (await contract.maxMintAmountPerTx()).add(1).toNumber()),
+            }),
+        ).to.be.revertedWith("You can not mint this many items");
+        // Sending insufficient funds
+        await expect(
+            contract.connect(goldListedUser).goldListMint(1, promoCodes["0"], merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())), { value: getPrice(SaleType.GOLDLIST, 1).sub(1) }),
+        ).to.be.rejectedWith(Error, "You did not send enough ETH to complete this purchase");
+        // Pretending to be someone else
+        await expect(
+            contract.connect(holder).goldListMint(1, promoCodes["0"], merkleTree.getHexProof(keccak256(await goldListedUser.getAddress())), { value: getPrice(SaleType.GOLDLIST, 1) }),
+        ).to.be.revertedWith("This is an invalid Gold List proof!");
+        // Sending an invalid proof
+        await expect(
+            contract.connect(holder).goldListMint(1, promoCodes["0"], merkleTree.getHexProof(keccak256(await holder.getAddress())), { value: getPrice(SaleType.GOLDLIST, 1) }),
+        ).to.be.revertedWith("This is an invalid Gold List proof!");
+        // Sending no proof at all
+        await expect(contract.connect(holder).goldListMint(1, promoCodes["0"], [], { value: getPrice(SaleType.GOLDLIST, 1) })).to.be.revertedWith("This is an invalid Gold List proof!");
 
-    // Try to mint over max supply (before sold-out)
-    await expect(contract.connect(holder).mint(lastMintAmount + 1, {value: getPrice(SaleType.PUBLIC_SALE, lastMintAmount + 1)})).to.be.revertedWith('Max supply exceeded!');
-    await expect(contract.connect(holder).mint(lastMintAmount + 2, {value: getPrice(SaleType.PUBLIC_SALE, lastMintAmount + 2)})).to.be.revertedWith('Max supply exceeded!');
+        // Pause goldList sale
+        await contract.setGoldListMintEnabled(false);
+        await contract.setCost(utils.parseEther(CollectionConfig.preSale.price.toString()));
 
-    expect(await contract.totalSupply()).to.equal(expectedTotalSupply);
+        // Check balances
+        expect(await contract.balanceOf(await owner.getAddress())).to.equal(1);
+        expect(await contract.balanceOf(await goldListedUser.getAddress())).to.equal(2);
+        expect(await contract.balanceOf(await holder.getAddress())).to.equal(0);
+        expect(await contract.balanceOf(await externalUser.getAddress())).to.equal(0);
 
-    // Mint last tokens with owner address and test walletOfOwner(...)
-    await contract.connect(owner).mint(lastMintAmount, {value: getPrice(SaleType.PUBLIC_SALE, lastMintAmount)});
-    const expectedWalletOfOwner = [
-      BigNumber.from(1),
-    ];
-    for (const i of [...Array(lastMintAmount).keys()].reverse()) {
-      expectedWalletOfOwner.push(BigNumber.from(CollectionConfig.maxSupply - i));
-    }
-    expect(await contract.walletOfOwner(
-      await owner.getAddress(),
-      {
-        // Set gas limit to the maximum value since this function should be used off-chain only and it would fail otherwise...
-        gasLimit: BigNumber.from('0xffffffffffffffff'),
-      },
-    )).deep.equal(expectedWalletOfOwner);
+        // one promoCode used so far
+        expect(await contract.promotionCodeCount()).to.equal(1);
+        // sales so far for 1st promo code should be 1 Gold List NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["0"])).to.equal(utils.parseEther(CollectionConfig.goldlistSale.price.toString()));
+    });
 
-    // Try to mint over max supply (after sold-out)
-    await expect(contract.connect(goldListedUser).mint(1, {value: getPrice(SaleType.PUBLIC_SALE, 1)})).to.be.revertedWith('Max supply exceeded!');
+    it("Pre-sale (same as public sale)", async function () {
+        await contract.setCost(utils.parseEther(CollectionConfig.preSale.price.toString()));
+        await contract.setMaxMintAmountPerTx(CollectionConfig.preSale.maxMintAmountPerTx);
+        await contract.setMintLimit(CollectionConfig.preSale.mintLimit);
+        await contract.setPreSaleMintEnabled(true);
+        await contract.setPaused(false);
 
-    expect(await contract.totalSupply()).to.equal(CollectionConfig.maxSupply);
-  });
-    
-  it('Token URI generation', async function () {
-    const uriPrefix = 'ipfs://__COLLECTION_CID__/';
-    const uriSuffix = '.json';
-    const totalSupply = await contract.totalSupply();
+        await contract.connect(holder).mint(2, promoCodes["1"], { value: getPrice(SaleType.PRE_SALE, 2) });
+        await contract.connect(goldListedUser).mint(1, promoCodes["2"], { value: getPrice(SaleType.PRE_SALE, 1) });
+        // Sending insufficient funds
+        await expect(contract.connect(holder).mint(1, promoCodes["0"], { value: getPrice(SaleType.PRE_SALE, 1).sub(1) })).to.be.rejectedWith(
+            Error,
+            "You did not send enough ETH to complete this purchase",
+        );
+        // Sending an invalid mint amount
+        await expect(
+            contract
+                .connect(goldListedUser)
+                .mint(await (await contract.maxMintAmountPerTx()).add(1), promoCodes["0"], { value: getPrice(SaleType.PRE_SALE, await (await contract.maxMintAmountPerTx()).add(1).toNumber()) }),
+        ).to.be.revertedWith("You can not mint this many items");
+        // Sending a whitelist mint transaction
+        await expect(contract.connect(goldListedUser).goldListMint(1, promoCodes["0"], [], { value: getPrice(SaleType.GOLDLIST, 1) })).to.be.rejectedWith(
+            Error,
+            "You did not send enough ETH to complete this purchase",
+        );
 
-    expect(await contract.tokenURI(1)).to.equal(CollectionConfig.hiddenMetadataUri);
+        // Check balances
+        expect(await contract.balanceOf(await owner.getAddress())).to.equal(1);
+        expect(await contract.balanceOf(await goldListedUser.getAddress())).to.equal(3);
+        expect(await contract.balanceOf(await holder.getAddress())).to.equal(2);
+        expect(await contract.balanceOf(await externalUser.getAddress())).to.equal(0);
 
-    // Reveal collection
-    await contract.setUriPrefix(uriPrefix);
-    await contract.setRevealed(true);
+        // 3 promo codes used so far
+        expect(await contract.promotionCodeCount()).to.equal(3);
+        // sales so far for 1st promo code should be 1 Gold List NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["0"])).to.equal(utils.parseEther(CollectionConfig.goldlistSale.price.toString()));
+        // sales so far for 2nd promo code should be 2 PreSale NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["1"])).to.equal(utils.parseEther(CollectionConfig.preSale.price.toString()).mul(2));
+        // sales so far for 3rd promo code should be 1 PreSale NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["2"])).to.equal(utils.parseEther(CollectionConfig.preSale.price.toString()));
 
-    // ERC721A uses token IDs starting from 0 internally...
-    await expect(contract.tokenURI(0)).to.be.revertedWith('ERC721Metadata: the token specified does not exist');
+        // Pause pre-sale
+        await contract.setPaused(true);
+        await contract.setCost(utils.parseEther(CollectionConfig.publicSale.price.toString()));
+    });
 
-    // Testing first and last minted tokens
-    expect(await contract.tokenURI(1)).to.equal(`${uriPrefix}1${uriSuffix}`);
-    expect(await contract.tokenURI(totalSupply)).to.equal(`${uriPrefix}${totalSupply}${uriSuffix}`);
-  });
+    it("Owner only functions", async function () {
+        await expect(contract.connect(externalUser).mintForAddress(1, await externalUser.getAddress())).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setRevealed(false)).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setCost(utils.parseEther("0.0000001"))).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setMaxMintAmountPerTx(99999)).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setHiddenMetadataUri("INVALID_URI")).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setUriPrefix("INVALID_PREFIX")).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setUriSuffix("INVALID_SUFFIX")).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setPaused(false)).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setGoldListMerkleRoot("0x0000000000000000000000000000000000000000000000000000000000000000")).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).setGoldListMintEnabled(false)).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(contract.connect(externalUser).withdraw()).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("Wallet of owner", async function () {
+        expect(await contract.walletOfOwner(await owner.getAddress())).deep.equal([BigNumber.from(1)]);
+        expect(await contract.walletOfOwner(await goldListedUser.getAddress())).deep.equal([BigNumber.from(2), BigNumber.from(3), BigNumber.from(6)]);
+        expect(await contract.walletOfOwner(await holder.getAddress())).deep.equal([BigNumber.from(4), BigNumber.from(5)]);
+        expect(await contract.walletOfOwner(await externalUser.getAddress())).deep.equal([]);
+    });
+
+    it("Supply checks (long)", async function () {
+        if (process.env.EXTENDED_TESTS === undefined) {
+            this.skip();
+        }
+
+        const alreadyMinted = 6;
+        const maxMintAmountPerTx = 50;
+        const iterations = Math.floor((CollectionConfig.maxSupply - alreadyMinted) / maxMintAmountPerTx);
+        const expectedTotalSupply = iterations * maxMintAmountPerTx + alreadyMinted;
+        const lastMintAmount = CollectionConfig.maxSupply - expectedTotalSupply;
+        expect(await contract.totalSupply()).to.equal(alreadyMinted);
+
+        // set public sale parameters
+        await contract.setCost(utils.parseEther(CollectionConfig.publicSale.price.toString()));
+        await contract.setMintLimit(CollectionConfig.maxSupply);
+        await contract.setMaxMintAmountPerTx(maxMintAmountPerTx);
+        await contract.setPreSaleMintEnabled(false);
+        await contract.setPaused(false);
+
+        await Promise.all(
+            [...Array(iterations).keys()].map(
+                async () => await contract.connect(goldListedUser).mint(maxMintAmountPerTx, promoCodes["3"], { value: getPrice(SaleType.PUBLIC_SALE, maxMintAmountPerTx) }),
+            ),
+        );
+
+        // Try to mint over max supply (before sold-out)
+        await expect(contract.connect(holder).mint(lastMintAmount + 1, promoCodes["0"], { value: getPrice(SaleType.PUBLIC_SALE, lastMintAmount + 1) })).to.be.revertedWith(
+            "This purchase exceeds the maximum number of NFTS allowed for this sale",
+        );
+        await expect(contract.connect(holder).mint(lastMintAmount + 2, promoCodes["0"], { value: getPrice(SaleType.PUBLIC_SALE, lastMintAmount + 2) })).to.be.revertedWith(
+            "This purchase exceeds the maximum number of NFTS allowed for this sale",
+        );
+
+        expect(await contract.totalSupply()).to.equal(expectedTotalSupply);
+
+        // Mint last tokens with owner address and test walletOfOwner(...)
+        await contract.connect(owner).mint(lastMintAmount, promoCodes["4"], { value: getPrice(SaleType.PUBLIC_SALE, lastMintAmount) });
+        const expectedWalletOfOwner = [BigNumber.from(1)];
+        for (const i of [...Array(lastMintAmount).keys()].reverse()) {
+            expectedWalletOfOwner.push(BigNumber.from(CollectionConfig.maxSupply - i));
+        }
+        expect(
+            await contract.walletOfOwner(await owner.getAddress(), {
+                // Set gas limit to the maximum value since this function should be used off-chain only and it would fail otherwise...
+                gasLimit: BigNumber.from("0xffffffffffffffff"),
+            }),
+        ).deep.equal(expectedWalletOfOwner);
+
+        // Try to mint over max supply (after sold-out)
+        await expect(contract.connect(goldListedUser).mint(1, promoCodes["0"], { value: getPrice(SaleType.PUBLIC_SALE, 1) })).to.be.revertedWith(
+            "This purchase exceeds the maximum number of NFTS allowed for this sale",
+        );
+
+        expect(await contract.totalSupply()).to.equal(CollectionConfig.maxSupply);
+
+        // 5 promo codes used so far
+        expect(await contract.promotionCodeCount()).to.equal(5);
+        // sales so far for 1st promo code should be 1 Gold List NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["0"])).to.equal(utils.parseEther(CollectionConfig.goldlistSale.price.toString()));
+        // sales so far for 2nd promo code should be 2 PreSale NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["1"])).to.equal(utils.parseEther(CollectionConfig.preSale.price.toString()).mul(2));
+        // sales so far for 3rd promo code should be 1 PreSale NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["2"])).to.equal(utils.parseEther(CollectionConfig.preSale.price.toString()));
+        // sales so far for 4rd promo code should be (Iterations * maxMintAmountPerTx) Public Sale NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["2"])).to.equal(utils.parseEther(CollectionConfig.preSale.price.toString()).mul(iterations).mul(maxMintAmountPerTx));
+        // sales so far for 5rd promo code should be (lastMintAmount) Public Sale NFTs
+        expect(await contract.promotionCodeToSales(promoCodes["2"])).to.equal(utils.parseEther(CollectionConfig.preSale.price.toString()).mul(lastMintAmount));
+    });
+
+    it("Token URI generation", async function () {
+        const uriPrefix = "ipfs://__COLLECTION_CID__/";
+        const uriSuffix = ".json";
+        const totalSupply = await contract.totalSupply();
+
+        expect(await contract.tokenURI(1)).to.equal(CollectionConfig.hiddenMetadataUri);
+
+        // Reveal collection
+        await contract.setUriPrefix(uriPrefix);
+        await contract.setRevealed(true);
+
+        // ERC721A uses token IDs starting from 0 internally...
+        await expect(contract.tokenURI(0)).to.be.revertedWith("ERC721Metadata: the token specified does not exist");
+
+        // Testing first and last minted tokens
+        expect(await contract.tokenURI(1)).to.equal(`${uriPrefix}1${uriSuffix}`);
+        expect(await contract.tokenURI(totalSupply)).to.equal(`${uriPrefix}${totalSupply}${uriSuffix}`);
+    });
 });
