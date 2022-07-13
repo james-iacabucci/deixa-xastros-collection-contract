@@ -1,22 +1,28 @@
-import NftContractProvider from '../lib/NftContractProvider';
+import NftContractProvider from "../lib/NftContractProvider";
 
 async function main() {
-  // Attach to deployed contract
-  const contract = await NftContractProvider.getContract();
-  
-  // Disable Free List sale (if needed)
-  if (await contract.freeListMintEnabled()) {
-    console.log('Disabling Free List sale...');
+    // Attach to deployed contract
+    const contract = await NftContractProvider.getContract();
 
-    await (await contract.setFreeListMintEnabled(false)).wait();
-  }
+    // Disable Free List sale (if needed)
+    if (await contract.freeListMintEnabled()) {
+        console.log("Disabling Free List sale...");
 
-  console.log('The Free List sale has been disabled!');
+        await (await contract.setFreeListMintEnabled(false)).wait();
+    }
+
+    // Unpause the contract (if needed)
+    if (await contract.paused()) {
+        console.log("Unpausing the contract...");
+        await (await contract.setPaused(true)).wait();
+    }
+
+    console.log("The Free List sale has been disabled!");
 }
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+    console.error(error);
+    process.exitCode = 1;
 });
