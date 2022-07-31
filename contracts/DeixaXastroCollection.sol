@@ -147,6 +147,25 @@ contract DeixaXastroCollection is ERC721A, Ownable, ReentrancyGuard {
         recordPromotedSale(_promotionCode, msg.value);
     }
 
+    /*
+     * @desc batch miniting facilitates distributions to founders and partners
+     * only by Owner, gas fees only
+     */
+    function mintBatch(address[] memory addresses, uint256[] memory amounts) public onlyOwner {
+        require(!paused, "The sale is paused!");
+        require(addresses.length == amounts.length, "Address and Amount list lengths do not match");
+
+        uint256 newSupply = totalSupply();
+        for (uint256 i = 0; i < addresses.length; i++) {
+            newSupply += amounts[i];
+        }
+        require(newSupply <= maxSupply && newSupply <= mintLimit, "This batch exceeds the maximum number of NFTS allowed for this sale");
+
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _safeMint(addresses[i], amounts[i]);
+        }
+    }
+
     function mintForAddress(uint256 _mintAmount, address _receiver) public mintCompliance(_mintAmount) onlyOwner {
         _safeMint(_receiver, _mintAmount);
     }
