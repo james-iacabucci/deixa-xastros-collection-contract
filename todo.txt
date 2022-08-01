@@ -1,3 +1,15 @@
+IMAGES
+- save prereveal image into art folder
+- upload prereveal image to Pinata as folder with one item
+- update the prereveal.json in art folder with the image base CID from Pinata
+- upload the prereveal metadata to Pinata as folder with one item
+- update the CollectionConfig file hiddenmetadataURI with the CID for the metadata
+- upload the real images to Pinata as a folder with all items
+- update the art program config.js baseURI withe the CID of the images folder
+- run the art program utils/update_info.js to update all the metadata files
+- update the contract .env COLLECTION_URI_PREFIX with the CID of the Pinata image folder
+-
+
 CONTRACT DEPLOYMENT AND EXECUTION 
 - truffle dashboard (in new terminimal window)
 - connect wallet
