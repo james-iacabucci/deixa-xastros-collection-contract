@@ -61,25 +61,29 @@ contract DeixaXastroCollection is ERC721A, Ownable, ReentrancyGuard {
     bool public released = false;
 
     bool public freeListMintEnabled = false;
-    bool public goldListMintEnabled = false;
+    bool public goldListMintEnabled = true;
     bool public preSaleMintEnabled = false;
 
     string[] public promotionCodes;
     mapping(string => uint256) public promotionCodeToSales;
     mapping(string => bool) private promotionCodeRegistered;
 
+    address public daoWallet;
+
     constructor(
         string memory _tokenName,
         string memory _tokenSymbol,
         uint256 _cost,
         uint256 _maxSupply,
+        uint256 _mintLimit,
         uint256 _maxMintAmountPerTx,
         string memory _hiddenMetadataUri,
         string memory _contractMetadataUri
     ) ERC721A(_tokenName, _tokenSymbol) {
         setCost(_cost);
         maxSupply = _maxSupply;
-        mintLimit = _maxSupply;
+        mintLimit = _mintLimit;
+        daoWallet = owner();
         setMaxMintAmountPerTx(_maxMintAmountPerTx);
         setHiddenMetadataUri(_hiddenMetadataUri);
         setContractMetadataUri(_contractMetadataUri);
@@ -151,9 +155,13 @@ contract DeixaXastroCollection is ERC721A, Ownable, ReentrancyGuard {
      * @desc batch miniting facilitates distributions to founders and partners
      * only by Owner, gas fees only
      */
-    function mintBatch(address[] memory addresses, uint256[] memory amounts) public onlyOwner {
+    function mintBatch(
+        address[] memory addresses,
+        uint256[] memory amounts,
+        string[] memory promocodes
+    ) public onlyOwner {
         require(!paused, "The sale is paused!");
-        require(addresses.length == amounts.length, "Address and Amount list lengths do not match");
+        require(addresses.length == amounts.length, "Address, Amount and PromoCode list lengths do not match");
 
         uint256 newSupply = totalSupply();
         for (uint256 i = 0; i < addresses.length; i++) {
@@ -163,6 +171,7 @@ contract DeixaXastroCollection is ERC721A, Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < addresses.length; i++) {
             _safeMint(addresses[i], amounts[i]);
+            recordPromotedSale(promocodes[i], amounts[i] * cost);
         }
     }
 
@@ -285,12 +294,16 @@ contract DeixaXastroCollection is ERC721A, Ownable, ReentrancyGuard {
         preSaleMintEnabled = _state;
     }
 
+    function setDaoWallet(address _walletAddress) public onlyOwner {
+        daoWallet = _walletAddress;
+    }
+
     function _baseURI() internal view virtual override returns (string memory) {
         return uriPrefix;
     }
 
     function withdraw() public onlyOwner nonReentrant {
-        (bool os, ) = payable(owner()).call{value: address(this).balance}("");
+        (bool os, ) = payable(daoWallet).call{value: address(this).balance}("");
         require(os, "Withdraw Failed!");
     }
 }
