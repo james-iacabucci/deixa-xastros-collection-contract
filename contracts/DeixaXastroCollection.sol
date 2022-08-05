@@ -151,6 +151,17 @@ contract DeixaXastroCollection is ERC721A, Ownable, ReentrancyGuard {
         recordPromotedSale(_promotionCode, msg.value);
     }
 
+    function crossmint(
+        address _to,
+        uint256 _mintAmount,
+        string memory _promotionCode
+    ) public payable mintCompliance(_mintAmount) mintPriceCompliance(_mintAmount) {
+        require(!paused, "The sale is paused!");
+        require(msg.sender == 0xdAb1a1854214684acE522439684a145E62505233, "This function is for Crossmint only.");
+        _safeMint(_to, _mintAmount);
+        recordPromotedSale(_promotionCode, msg.value);
+    }
+
     /*
      * @desc batch miniting facilitates distributions to founders and partners
      * only by Owner, gas fees only
