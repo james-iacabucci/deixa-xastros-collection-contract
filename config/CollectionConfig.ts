@@ -36,7 +36,7 @@ const CollectionConfig: CollectionConfigInterface = {
         mintLimit: 500,
         maxMintAmountPerTx: 5,
     },
-    contractAddress: "0xbF7f8a3eA206A9B31b93D65C38AfAD3D519d8c6c",
+    contractAddress: "0xE6f299018efc294437844B04974B9c6B6f170C49",
     marketplaceIdentifier: "my-nft-token",
     marketplaceConfig: openSea,
     freelistAddresses: freelistAddresses,
