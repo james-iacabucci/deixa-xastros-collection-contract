@@ -13,9 +13,9 @@ const CollectionConfig: CollectionConfigInterface = {
     contractName: "DeixaXastroCollection",
     tokenName: "DeixaXastro",
     tokenSymbol: "XASTRO",
-    hiddenMetadataUri: "ipfs://QmSjsBvosAfUjfxoB2UQCCvDMyjwNtRH1pMTTY2t3FtNEV/xastro_prereveal.json",
-    contractMetadataUri: "ipfs://QmevYYcbLamwxrEQU6tnXMoqH9HubiGvEEAJHTUj7nAeuu",
-    maxSupply: 50,
+    hiddenMetadataUri: "ipfs://QmVtimrJehHvNCixH6d34MaWkpCgETHVQf56ADvj4mB6hd/xastro_prereveal.json",
+    contractMetadataUri: "ipfs://QmS2jwuCnGYHwUsHc4v7gyckeUh6bf96RBe4eznDd4tpFh",
+    maxSupply: 40,
     freelistSale: {
         price: 0.0,
         mintLimit: 5,
@@ -33,18 +33,14 @@ const CollectionConfig: CollectionConfigInterface = {
     },
     publicSale: {
         price: 0.003,
-        mintLimit: 500,
-        maxMintAmountPerTx: 5,
+        mintLimit: 40,
+        maxMintAmountPerTx: 10,
     },
-    contractAddress: "0xbF7f8a3eA206A9B31b93D65C38AfAD3D519d8c6c",
+    contractAddress: "0xA83Debc9bdf026388d08783E2b51Ec5707db21c5",
     marketplaceIdentifier: "my-nft-token",
     marketplaceConfig: openSea,
     freelistAddresses: freelistAddresses,
     goldlistAddresses: goldlistAddresses,
-    tokenContractName: "DeixaToken",
-    tokenContractAddress: "0x60A0E01A1AFc273533aE03F8693dce52F8cD0C1b",
-    stakingContractName: "DeixaXastroStaking",
-    stakingContractAddress: "0x00D393033DC6a029e2A4952fBd6960A712E02C2f",
 };
 
 export default CollectionConfig;

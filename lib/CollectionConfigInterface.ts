@@ -25,8 +25,4 @@ export default interface CollectionConfigInterface {
     goldlistAddresses: string[];
     marketplaceIdentifier: string;
     marketplaceConfig: MarketplaceConfigInterface;
-    tokenContractName: string;
-    tokenContractAddress: string | null;
-    stakingContractName: string;
-    stakingContractAddress: string | null;
 }
