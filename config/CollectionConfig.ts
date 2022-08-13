@@ -15,10 +15,10 @@ const CollectionConfig: CollectionConfigInterface = {
     tokenSymbol: "XASTRO",
     hiddenMetadataUri: "ipfs://QmVtimrJehHvNCixH6d34MaWkpCgETHVQf56ADvj4mB6hd/xastro_prereveal.json",
     contractMetadataUri: "ipfs://QmS2jwuCnGYHwUsHc4v7gyckeUh6bf96RBe4eznDd4tpFh",
-    maxSupply: 40,
+    maxSupply: 50,
     freelistSale: {
         price: 0.0,
-        mintLimit: 5,
+        mintLimit: 0,
         maxMintAmountPerTx: 1,
     },
     goldlistSale: {
@@ -28,15 +28,15 @@ const CollectionConfig: CollectionConfigInterface = {
     },
     preSale: {
         price: 0.002,
-        mintLimit: 20,
+        mintLimit: 25,
         maxMintAmountPerTx: 5,
     },
     publicSale: {
         price: 0.003,
-        mintLimit: 40,
+        mintLimit: 500,
         maxMintAmountPerTx: 10,
     },
-    contractAddress: "0xA83Debc9bdf026388d08783E2b51Ec5707db21c5",
+    contractAddress: "0xc07F5426915389a7cF29d0829a38DAc3141abdB4",
     marketplaceIdentifier: "my-nft-token",
     marketplaceConfig: openSea,
     freelistAddresses: freelistAddresses,
