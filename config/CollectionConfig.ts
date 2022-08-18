@@ -33,10 +33,10 @@ const CollectionConfig: CollectionConfigInterface = {
     },
     publicSale: {
         price: 0.003,
-        mintLimit: 500,
+        mintLimit: 50,
         maxMintAmountPerTx: 10,
     },
-    contractAddress: "0xc07F5426915389a7cF29d0829a38DAc3141abdB4",
+    contractAddress: "0x0eD96E60FAc3439Ed02A86c28162b6DaD68DBCfa",
     marketplaceIdentifier: "my-nft-token",
     marketplaceConfig: openSea,
     freelistAddresses: freelistAddresses,
